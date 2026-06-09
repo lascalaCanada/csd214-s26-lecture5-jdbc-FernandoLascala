@@ -1,0 +1,1455 @@
+Context generated from: /home/fcarella/IdeaProjects/csd214/w26/bookstore-2026-01-30
+Timestamp: 2026-01-30-11-44
+--------------------------------------------------
+
+--- FILE: src/main/java/bookstore/App.java ---
+```
+package bookstore;
+
+import bookstore.pojos.*;
+import com.github.javafaker.Faker;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
+
+public class App {
+    private List<SaleableItem> items = new ArrayList<>();
+    private CashTill cashTill = new CashTill();
+    private Scanner input = new Scanner(System.in);
+
+    public void run() {
+        populate();
+        int choice = 0;
+        while (choice != 99) {
+            System.out.println("\n***********************");
+            System.out.println(" 1. Add Items");
+            System.out.println(" 2. Edit Items");
+            System.out.println(" 3. Delete Items");
+            System.out.println(" 4. Sell item(s)");
+            System.out.println(" 5. List items");
+            System.out.println("99. Quit");
+            System.out.println("***********************");
+            System.out.print("Enter choice: \n");
+
+            try {
+                String line = input.nextLine();
+                if (line.trim().isEmpty()) continue;
+                choice = Integer.parseInt(line.trim());
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input.");
+                choice = 0;
+            }
+
+            switch (choice) {
+                case 1:
+                    addItem();
+                    break;
+                case 2:
+                    editItem();
+                    break;
+                case 3:
+                    deleteItem();
+                    break;
+                case 4:
+                    sellItem();
+                    break;
+                case 5:
+                    listAny();
+                    break;
+                case 99:
+                    // Exit
+                    break;
+                default:
+                    System.out.println("Invalid choice.");
+            }
+        }
+    }
+
+    public void addItem() {
+        int choice = 0;
+        while (choice != 99) {
+            System.out.println("\nAdd an item\n");
+            System.out.println("1. Add Book");
+            System.out.println("2. Add Magazine");
+            System.out.println("3. Add DiscMag");
+            System.out.println("4. Add Ticket");
+            System.out.println("99. Exit");
+
+            try {
+                String line = input.nextLine();
+                if (line.trim().isEmpty()) continue;
+                choice = Integer.parseInt(line.trim());
+            } catch (NumberFormatException e) {
+                choice = 0;
+            }
+
+            if (choice == 99) return;
+
+            SaleableItem item = null;
+            switch(choice) {
+                case 1: item = new Book(); break;
+                case 2: item = new Magazine(); break;
+                case 3: item = new DiscMag(); break;
+                case 4: item = new Ticket(); break;
+                default: System.out.println("Invalid selection."); continue;
+            }
+
+            if(item instanceof Editable) {
+                // PASS THE SHARED SCANNER
+                ((Editable)item).initialize(this.input);
+            }
+
+            addItem(item);
+        }
+    }
+
+    public void addItem(SaleableItem item) {
+        items.add(item);
+    }
+
+    public void listAny() {
+        int choice = 0;
+        while (choice != 99) {
+            System.out.println("\nAll Items");
+            System.out.println("-----------");
+            System.out.println("List");
+            System.out.println("1. All");
+            System.out.println("2. Books");
+            System.out.println("3. Magazines");
+            System.out.println("4. DiscMags");
+            System.out.println("5. Tickets");
+            System.out.println("99. Exit");
+
+            try {
+                String line = input.nextLine();
+                if (line.trim().isEmpty()) continue;
+                choice = Integer.parseInt(line.trim());
+            } catch (NumberFormatException e) {
+                choice = 0;
+            }
+
+            if (choice == 99) return;
+
+            Class<?> filter = null;
+            switch(choice) {
+                case 1: filter = null; break;
+                case 2: filter = Book.class; break;
+                case 3: filter = Magazine.class; break;
+                case 4: filter = DiscMag.class; break;
+                case 5: filter = Ticket.class; break;
+                default: System.out.println("Invalid selection."); continue;
+            }
+
+            for (SaleableItem i : items) {
+                boolean show = false;
+                if (filter == null) {
+                    show = true;
+                } else {
+                    if (filter == Magazine.class && i instanceof DiscMag) {
+                        show = false;
+                    } else if (filter.isInstance(i)) {
+                        show = true;
+                    }
+                }
+
+                if (show) {
+                    listI(i);
+                }
+            }
+        }
+    }
+
+    public void listI(Object o) {
+        System.out.println(o.toString());
+    }
+
+    public void editItem() {
+        System.out.println("Select item index to edit (0 to " + (items.size() - 1) + "):");
+        for(int i=0; i<items.size(); i++) {
+            System.out.println(i + ". " + items.get(i));
+        }
+
+        try {
+            int idx = Integer.parseInt(input.nextLine().trim());
+            if (idx >= 0 && idx < items.size()) {
+                SaleableItem item = items.get(idx);
+                if (item instanceof Editable) {
+                    editItem((Editable) item);
+                } else {
+                    System.out.println("Item is not editable.");
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Invalid selection.");
+        }
+    }
+
+    public void editItem(Editable item) {
+        // PASS THE SHARED SCANNER
+        item.edit(this.input);
+    }
+
+    public void deleteItem() {
+        System.out.println("Select item index to delete:");
+        for(int i=0; i<items.size(); i++) {
+            System.out.println(i + ". " + items.get(i));
+        }
+        try {
+            int idx = Integer.parseInt(input.nextLine().trim());
+            if (idx >= 0 && idx < items.size()) {
+                items.remove(idx);
+                System.out.println("Item deleted.");
+            }
+        } catch (Exception e) {
+            System.out.println("Invalid selection.");
+        }
+    }
+
+    public void sellItem() {
+        System.out.println("Select item index to sell:");
+        for(int i=0; i<items.size(); i++) {
+            System.out.println(i + ". " + items.get(i));
+        }
+        try {
+            int idx = Integer.parseInt(input.nextLine().trim());
+            if (idx >= 0 && idx < items.size()) {
+                SaleableItem item = items.get(idx);
+                cashTill.sellItem(item);
+            }
+        } catch (Exception e) {
+            System.out.println("Invalid selection.");
+        }
+    }
+
+    public boolean findItemExists(SaleableItem item) {
+        return items.contains(item);
+    }
+
+    public SaleableItem findItem(SaleableItem item) {
+        int index = items.indexOf(item);
+        if (index != -1) return items.get(index);
+        return null;
+    }
+
+    public SaleableItem getItem(SaleableItem item) {
+        return findItem(item);
+    }
+
+    public void populate() {
+        System.out.println("Populating data with JavaFaker...");
+        Faker faker = new Faker();
+
+        for (int i = 0; i < 2; i++) {
+            // Book
+            Book b = new Book(
+                    faker.book().author(),
+                    faker.book().title(),
+                    faker.number().randomDouble(2, 10, 50), // Price
+                    faker.number().numberBetween(1, 20)     // Copies
+            );
+            addItem(b);
+
+            // Magazine
+            Magazine m = new Magazine(
+                    faker.number().numberBetween(100, 500), // Order Qty
+                    faker.date().past(30, TimeUnit.DAYS),   // Date
+                    faker.book().title() + " Monthly",      // Title
+                    faker.number().randomDouble(2, 5, 15),  // Price
+                    faker.number().numberBetween(5, 50)     // Copies
+            );
+            addItem(m);
+
+            // DiscMag
+            DiscMag dm = new DiscMag(
+                    faker.bool().bool(),                    // Has Disc
+                    faker.number().numberBetween(50, 200),  // Order Qty
+                    faker.date().past(60, TimeUnit.DAYS),   // Date
+                    "Tech Disc: " + faker.app().name(),     // Title
+                    faker.number().randomDouble(2, 10, 25), // Price
+                    faker.number().numberBetween(5, 30)     // Copies
+            );
+            addItem(dm);
+
+            // Ticket
+            Ticket t = new Ticket();
+            t.description = "Concert: " + faker.rockBand().name();
+            t.price = faker.number().randomDouble(2, 50, 150);
+            addItem(t);
+        }
+    }
+}
+```
+
+
+--- FILE: src/main/java/bookstore/Main.java ---
+```
+package bookstore;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Bookstore Application Started");
+        new App().run();
+    }
+}
+
+```
+
+
+--- FILE: src/main/java/bookstore/pojos/Book.java ---
+```
+package bookstore.pojos;
+
+import java.util.Objects;
+import java.util.Scanner;
+
+public class Book extends Publication {
+    private String author = "";
+
+    public Book() {
+        super();
+    }
+
+    public Book(String author) {
+        this.author = author;
+    }
+
+    public Book(String author, String title, double price, int copies) {
+        super(title, price, copies);
+        this.author = author;
+    }
+    @Override
+    public void initialize(Scanner input) {
+        // Pass scanner up to parent
+        super.initialize(input);
+
+        System.out.println("Enter Author:");
+        this.author = getInput(input, "Unknown Author");
+
+        // Pass scanner to helper
+        super.initPriceCopies(input);
+    }
+
+    @Override
+    public void edit(Scanner input) {
+        super.edit(input);
+        System.out.println("Edit Author [" + this.author + "]:");
+        this.author = getInput(input, this.author);
+    }
+
+
+    @Override
+    public void sellItem() {
+        System.out.println("Selling Book: " + getTitle() + " by " + author);
+        setCopies(getCopies() - 1);
+    }
+
+    public String getAuthor() {
+        return author;
+    }
+
+    public void setAuthor(String author) {
+        this.author = author;
+    }
+
+    @Override
+    public String toString() {
+        return "Book{author='" + author + "', " + super.toString() + "}";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Book)) return false;
+        if (!super.equals(o)) return false;
+        Book book = (Book) o;
+        return Objects.equals(author, book.author);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), author);
+    }
+}
+
+```
+
+
+--- FILE: src/main/java/bookstore/pojos/CashTill.java ---
+```
+package bookstore.pojos;
+
+public class CashTill {
+    private double runningTotal;
+
+    public CashTill() {
+        this.runningTotal = 0.0;
+    }
+
+    public void showTotal() {
+        System.out.println("Current Cash Till Total: $" + runningTotal);
+    }
+
+    public void sellItem(SaleableItem item) {
+        item.sellItem();
+        runningTotal += item.getPrice();
+        System.out.println("Added $" + item.getPrice() + " to till.");
+    }
+
+    public double getRunningTotal() {
+        return runningTotal;
+    }
+}
+
+```
+
+
+--- FILE: src/main/java/bookstore/pojos/DiscMag.java ---
+```
+package bookstore.pojos;
+
+import java.util.Date;
+import java.util.Scanner;
+
+public class DiscMag extends Magazine {
+    private boolean hasDisc;
+
+    public DiscMag() {
+    }
+
+    public DiscMag(boolean hasDisc, int orderQty, Date currentIssue, String title, double price, int copies) {
+        super(orderQty, currentIssue, title, price, copies);
+        this.hasDisc = hasDisc;
+    }
+
+    public void initialize(Scanner input) {
+        // Pass scanner up to parent
+        super.initialize(input);
+
+        System.out.println("Has Disc? (true/false):");
+        this.hasDisc = getInput(input, false);
+    }
+
+    @Override
+    public void edit(Scanner input) {
+        super.edit(input); // Title, Price, Copies, OrderQty, Date
+
+        System.out.println("Edit Has Disc [" + this.hasDisc + "]:");
+        this.hasDisc = getInput(input, this.hasDisc);
+    }
+
+    @Override
+    public void sellItem() {
+        System.out.println("Selling Disc Magazine (Disc: " + hasDisc + ")");
+        setCopies(getCopies() - 1);
+    }
+
+    public boolean isHasDisc() { return hasDisc; }
+    public void setHasDisc(boolean h) { this.hasDisc = h; }
+
+    @Override
+    public String toString() {
+        return "DiscMag{hasDisc=" + hasDisc + ", " + super.toString() + "}";
+    }
+}
+
+```
+
+
+--- FILE: src/main/java/bookstore/pojos/Editable.java ---
+```
+package bookstore.pojos;
+
+import java.io.Serializable;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.Scanner;
+
+public abstract class Editable implements Serializable, SaleableItem {
+
+    // REMOVED: public Scanner input = new Scanner(System.in);
+    // REMOVED: setSystemInput() - No longer needed, we inject manually.
+
+    // 1. Update Abstract Methods to accept the dependency
+    public abstract void edit(Scanner input);
+    public abstract void initialize(Scanner input);
+
+    // 2. Update Helper methods to use the passed Scanner
+    public String getInput(Scanner input, String defaultValue) {
+        // Handle empty buffer issues by reading raw
+        String ss = input.nextLine();
+        if (ss.trim().isEmpty()) {
+            return defaultValue;
+        }
+        // Return the raw string (no need for second scanner here usually)
+        return ss.trim();
+    }
+
+    public int getInput(Scanner input, int defaultValue) {
+        String s = input.nextLine();
+        if (s.trim().isEmpty()) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(s.trim());
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    public double getInput(Scanner input, double defaultValue) {
+        String s = input.nextLine();
+        if (s.trim().isEmpty()) {
+            return defaultValue;
+        }
+        try {
+            return Double.parseDouble(s.trim());
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    public boolean getInput(Scanner input, boolean defaultValue) {
+        String s = input.nextLine();
+        if (s.trim().isEmpty()) {
+            return defaultValue;
+        }
+        return Boolean.parseBoolean(s.trim());
+    }
+
+    public Date getInput(Scanner input, Date defaultValue) {
+        String s = input.nextLine();
+        if (s.trim().isEmpty()) {
+            return defaultValue;
+        }
+        SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy", Locale.ENGLISH);
+        try {
+            return formatter.parse(s.trim());
+        } catch (ParseException e) {
+            System.out.println("Invalid Date. Keeping default.");
+            return defaultValue;
+        }
+    }
+}
+```
+
+
+--- FILE: src/main/java/bookstore/pojos/Magazine.java ---
+```
+package bookstore.pojos;
+
+import java.util.Date;
+import java.util.Scanner;
+
+public class Magazine extends Publication {
+    private int orderQty = 0;
+    private Date currentIssue = new Date();
+
+    public Magazine() {
+    }
+
+    public Magazine(int orderQty, Date currentIssue, String title, double price, int copies) {
+        super(title, price, copies);
+        this.orderQty = orderQty;
+        this.currentIssue = currentIssue;
+    }
+
+    @Override
+    public void initialize(Scanner input) {
+        super.initialize(input); // Title
+
+        System.out.println("Enter Order Qty:");
+        this.orderQty = getInput(input, 0);
+
+        System.out.println("Enter Current Issue Date (dd-MMM-yyyy):");
+        this.currentIssue = getInput(input, new Date());
+
+        super.initPriceCopies(input); // Copies, Price
+    }
+
+    @Override
+    public void edit(Scanner input) {
+        super.edit(input); // Title, Price, Copies
+
+        System.out.println("Edit Order Qty [" + this.orderQty + "]:");
+        this.orderQty = getInput(input, this.orderQty);
+
+        System.out.println("Edit Issue Date [" + this.currentIssue + "]:");
+        this.currentIssue = getInput(input, this.currentIssue);
+    }
+
+    @Override
+    public void sellItem() {
+        System.out.println("Selling Magazine: " + getTitle());
+        setCopies(getCopies() - 1);
+    }
+
+    public int getOrderQty() { return orderQty; }
+    public void setOrderQty(int o) { this.orderQty = o; }
+    public Date getCurrentIssue() { return currentIssue; }
+    public void setCurrentIssue(Date d) { this.currentIssue = d; }
+
+    @Override
+    public String toString() {
+        return "Magazine{orderQty=" + orderQty + ", issue=" + currentIssue + ", " + super.toString() + "}";
+    }
+}
+
+```
+
+
+--- FILE: src/main/java/bookstore/pojos/Product.java ---
+```
+package bookstore.pojos;
+
+import java.io.Serializable;
+
+// Marked abstract because it implements SaleableItem but doesn't implement getPrice()
+// (Price is defined in children: Ticket and Publication)
+public abstract class Product extends Editable implements SaleableItem, Serializable {
+    private String productId;
+
+    public String getProductId() {
+        return productId;
+    }
+
+    public void setProductId(String productId) {
+        this.productId = productId;
+    }
+}
+
+```
+
+
+--- FILE: src/main/java/bookstore/pojos/Publication.java ---
+```
+package bookstore.pojos;
+
+import java.util.Objects;
+import java.util.Scanner;
+
+public abstract class Publication extends Product {
+    private String title = "";
+    private double price = 0.0;
+    private int copies = 0;
+
+    public Publication() {
+    }
+
+    public Publication(String title, double price, int copies) {
+        this.title = title;
+        this.price = price;
+        this.copies = copies;
+    }
+
+
+//    // Helper used by subclasses during initialize
+//    protected void initPriceCopies() {
+//        System.out.println("Enter copies:");
+//        this.copies = getInput(0);
+//
+//        System.out.println("Enter price:");
+//        this.price = getInput(0.0);
+//    }
+
+    @Override
+    public void initialize(Scanner input) {
+        System.out.println("Enter Title:");
+        this.title = getInput(input, "Available Title");
+    }
+
+    // Pass scanner to helper
+    protected void initPriceCopies(Scanner input) {
+        System.out.println("Enter copies:");
+        this.copies = getInput(input, 0);
+
+        System.out.println("Enter price:");
+        this.price = getInput(input, 0.0);
+    }
+
+    @Override
+    public void edit(Scanner input) {
+        System.out.println("Edit Title [" + this.title + "]:");
+        this.title = getInput(input, this.title);
+
+        System.out.println("Edit Price [" + this.price + "]:");
+        this.price = getInput(input, this.price);
+
+        System.out.println("Edit Copies [" + this.copies + "]:");
+        this.copies = getInput(input, this.copies);
+    }
+    @Override
+    public double getPrice() {
+        return price;
+    }
+
+    public void setPrice(double price) {
+        this.price = price;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public int getCopies() {
+        return copies;
+    }
+
+    public void setCopies(int copies) {
+        this.copies = copies;
+    }
+
+    @Override
+    public String toString() {
+        return "Publication{title='" + title + "', price=" + price + ", copies=" + copies + "}";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Publication)) return false;
+        Publication that = (Publication) o;
+        return Double.compare(that.price, price) == 0 &&
+                copies == that.copies &&
+                Objects.equals(title, that.title);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(title, price, copies);
+    }
+}
+
+```
+
+
+--- FILE: src/main/java/bookstore/pojos/SaleableItem.java ---
+```
+package bookstore.pojos;
+
+public interface SaleableItem {
+    void sellItem();
+    double getPrice();
+}
+
+```
+
+
+--- FILE: src/main/java/bookstore/pojos/Ticket.java ---
+```
+package bookstore.pojos;
+
+import java.util.Scanner;
+
+public class Ticket extends Product {
+    public String description = "";
+    public double price = 0.0;
+
+    @Override
+    public void sellItem() {
+        System.out.println("Selling Ticket: " + description + " for " + price);
+    }
+
+    @Override
+    public double getPrice() {
+        return price;
+    }
+
+    @Override
+    public void initialize(Scanner input) {
+        System.out.println("Enter Description:");
+        this.description = getInput(input, "Ticket");
+
+        System.out.println("Enter Price:");
+        this.price = getInput(input, 0.0);
+    }
+
+    @Override
+    public void edit(Scanner input) {
+        System.out.println("Edit Description [" + this.description + "]:");
+        this.description = getInput(input, this.description);
+
+        System.out.println("Edit Price [" + this.price + "]:");
+        this.price = getInput(input, this.price);
+    }
+
+    @Override
+    public String toString() {
+        return "Ticket{desc='" + description + "', price=" + price + "}";
+    }
+}
+
+```
+
+
+--- FILE: src/test/java/bookstore/AppTest.java ---
+```
+package bookstore;
+
+import bookstore.pojos.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class AppTest {
+    private final InputStream originalSystemIn = System.in;
+
+    @AfterEach
+    void tearDown() {
+        System.setIn(originalSystemIn);
+    }
+
+    @Test
+    void testAppFlow_AddAndEditBook() {
+        // 1. Build the Clean Script
+        StringBuilder script = new StringBuilder();
+
+        // --- ADD BOOK ---
+        script.append("1\n");             // Main Menu: Add Items
+        script.append("1\n");             // Add Menu: Add Book
+        script.append("Dune\n");          // Title
+        script.append("Frank Herbert\n"); // Author
+        script.append("10\n");            // Copies
+        script.append("25.00\n");         // Price
+        script.append("99\n");            // Exit Add Menu
+
+        // --- EDIT BOOK ---
+        script.append("2\n");             // Main Menu: Edit Items
+        script.append("0\n");             // Select Index 0
+        script.append("Dune Messiah\n");  // Change Title
+        script.append("\n");              // Price: Keep
+        script.append("\n");              // Copies: Keep
+        script.append("\n");              // Author: Keep
+
+        // --- QUIT ---
+        script.append("99\n");            // Quit
+
+        // 2. Inject
+        System.setIn(new ByteArrayInputStream(script.toString().getBytes()));
+
+        // 3. Run
+        App app = new App() {
+            @Override
+            public void populate() { /* clean start */ }
+        };
+        app.run();
+
+        // 4. Verify
+        Book expected = new Book("Frank Herbert", "Dune Messiah", 25.00, 10);
+        SaleableItem result = app.findItem(expected);
+
+        assertNotNull(result);
+        assertEquals("Dune Messiah", ((Book)result).getTitle());
+    }
+}
+```
+
+
+--- FILE: src/test/java/bookstore/pojos/BookTest.java ---
+```
+package bookstore.pojos;
+
+import org.junit.jupiter.api.Test;
+
+import java.io.ByteArrayInputStream;
+import java.util.Scanner;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class BookTest {
+
+    // Helper method to create bookstore-2026-01-30.mmd Scanner from bookstore-2026-01-30.mmd String
+    private Scanner createMockScanner(String input) {
+        return new Scanner(new ByteArrayInputStream(input.getBytes()));
+    }
+
+    @Test
+    void testConstructorAndGetters() {
+        // Standard OOP test - no Scanner involved
+        Book book = new Book("Frank Herbert", "Dune", 50.0, 10);
+
+        assertEquals("Dune", book.getTitle());
+        assertEquals("Frank Herbert", book.getAuthor());
+        assertEquals(50.0, book.getPrice());
+        assertEquals(10, book.getCopies());
+    }
+
+    @Test
+    void testInitialize_PopulatesFieldsCorrectly() {
+        // 1. Prepare the Script
+        // Order in Code:
+        //   1. super.initialize() -> Title
+        //   2. this.initialize()  -> Author
+        //   3. super.initPriceCopies() -> Copies
+        //   4. super.initPriceCopies() -> Price
+        String inputData = "Dune\nFrank Herbert\n10\n25.00\n";
+        Scanner mockScanner = createMockScanner(inputData);
+
+        // 2. Execute
+        Book book = new Book();
+        book.initialize(mockScanner); // Dependency Injection!
+
+        // 3. Verify
+        assertEquals("Dune", book.getTitle());
+        assertEquals("Frank Herbert", book.getAuthor());
+        assertEquals(10, book.getCopies());
+        assertEquals(25.00, book.getPrice(), 0.001);
+    }
+
+    @Test
+    void testEdit_UpdatesFieldsAndKeepsOthers() {
+        // 1. Setup Initial State
+        Book book = new Book("Old Author", "Old Title", 10.0, 5);
+
+        // 2. Prepare the Script
+        // Order in Code:
+        //   1. super.edit() -> Title
+        //   2. super.edit() -> Price
+        //   3. super.edit() -> Copies
+        //   4. this.edit()  -> Author
+
+        // Scenario: Change Title to "New Title", Keep Price, Keep Copies, Change Author
+        String inputData = "New Title\n\n\nNew Author\n";
+        Scanner mockScanner = createMockScanner(inputData);
+
+        // 3. Execute
+        book.edit(mockScanner);
+
+        // 4. Verify
+        assertEquals("New Title", book.getTitle());   // Changed
+        assertEquals(10.0, book.getPrice(), 0.001);   // Kept (from \n)
+        assertEquals(5, book.getCopies());            // Kept (from \n)
+        assertEquals("New Author", book.getAuthor()); // Changed
+    }
+
+    @Test
+    void testSellItem_DecrementsCopies() {
+        Book book = new Book("Author", "Title", 10.0, 5);
+        book.sellItem();
+        assertEquals(4, book.getCopies());
+    }
+}
+```
+
+
+--- FILE: pom.xml ---
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>app</groupId>
+    <artifactId>bookstore-2026-01-30</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>com.github.javafaker</groupId>
+            <artifactId>javafaker</artifactId>
+            <version>1.0.2</version>
+        </dependency>
+        <!-- ... existing dependencies ... -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.0</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>
+```
+
+
+--- FILE: documentation/uml1.mmd ---
+```
+classDiagram
+%% --- LAYER 1: Base Class ---
+    class Vehicle {
+        <<Abstract>>
+        +String manufacturer
+        +int year
+        +start()
+        +stop()
+    }
+
+%% --- LAYER 2: Categories ---
+    class LandVehicle {
+        +int numWheels
+        +String transmissionType
+        +drive()
+    }
+
+    class WaterCraft {
+        +float displacement
+        +bool isMotorized
+        +float()
+    }
+
+    class Aircraft {
+        +int maxAltitude
+        +int numEngines
+        +fly()
+    }
+
+%% --- LAYER 3: Specific Types ---
+    class Car {
+        +int numDoors
+        +bool isConvertible
+        +openTrunk()
+    }
+
+    class Motorcycle {
+        +bool hasSidecar
+        +popWheelie()
+    }
+
+    class Yacht {
+        +int numCabins
+        +bool hasHelipad
+        +dropAnchor()
+    }
+
+    class JetPlane {
+        +float wingspan
+        +retractLandingGear()
+    }
+
+%% --- Relationships (Inheritance) ---
+%% Syntax: Parent <|-- Child
+
+    Vehicle <|-- LandVehicle
+    Vehicle <|-- WaterCraft
+    Vehicle <|-- Aircraft
+
+    LandVehicle <|-- Car
+    LandVehicle <|-- Motorcycle
+
+    WaterCraft <|-- Yacht
+
+    Aircraft <|-- JetPlane
+```
+
+
+--- FILE: documentation/uml2.mmd ---
+```
+classDiagram
+%% Base
+    class ElectronicDevice {
+        <<Abstract>>
+        -String serialNumber
+        -double price
+        +turnOn()
+    }
+
+%% Category
+    class Computer extends ElectronicDevice {
+-int ramSizeGB
+-String processor
+}
+
+%% Specific
+class Laptop extends Computer {
+-double batteryLifeHours
+}
+
+```
+
+
+--- FILE: documentation/bookstore-2026-01-30-142628.mmd ---
+```
+classDiagram
+    SaleableItem <|.. Editable
+    Serializable <|.. Editable
+    Editable <|-- Product
+    Product <|-- Ticket
+    Product <|-- Publication
+    Publication <|-- Book
+    Publication <|-- Magazine
+    Magazine <|-- DiscMag
+
+    Product <-- CashTill
+
+    class SaleableItem {
+        <<interface>>
+        +sellItem()
+        +getPrice() double
+    }
+
+    class Serializable {
+        <<interface>>
+    }
+
+    class Editable {
+        <<abstract>>
+        +edit(Scanner input)*
+        +initialize(Scanner input)*
+        +getInput(Scanner input, String defaultValue) String
+        +getInput(Scanner input, int defaultValue) int
+        +getInput(Scanner input, double defaultValue) double
+        +getInput(Scanner input, boolean defaultValue) boolean
+        +getInput(Scanner input, Date defaultValue) Date
+    }
+
+    class Product {
+        <<abstract>>
+        -String productId
+        +getProductId() String
+        +setProductId(String productId)
+    }
+
+    class Ticket {
+        +String description
+        +double price
+        +sellItem()
+        +getPrice() double
+        +initialize(Scanner input)
+        +edit(Scanner input)
+        +toString() String
+    }
+
+    class Publication {
+        <<Abstract>>
+        -String title
+        -double price
+        -int copies
+        +Publication()
+        +Publication(String title, double price, int copies)
+        +getPrice() double
+        +initialize(Scanner input)
+        +edit(Scanner input)
+        +toString() String
+        +equals(Object o) boolean
+        +hashCode() int
+    }
+
+    class Book {
+        -String author
+        +Book()
+        +Book(String author)
+        +Book(String author, String title, double price, int copies)
+        +initialize(Scanner input)
+        +edit(Scanner input)
+        +sellItem()
+        +toString() String
+        +equals(Object o) boolean
+        +hashCode() int
+    }
+
+    class Magazine {
+        -int orderQty
+        -Date currentIssue
+        +Magazine()
+        +Magazine(int orderQty, Date currentIssue, String title, double price, int copies)
+        +initialize(Scanner input)
+        +edit(Scanner input)
+        +sellItem()
+        +toString() String
+    }
+
+    class DiscMag {
+        -boolean hasDisc
+        +DiscMag()
+        +DiscMag(boolean hasDisc, int orderQty, Date currentIssue, String title, double price, int copies)
+        +initialize(Scanner input)
+        +edit(Scanner input)
+        +sellItem()
+        +toString() String
+    }
+
+    class CashTill {
+        -double runningTotal
+        +CashTill()
+        +showTotal()
+        +sellItem(SaleableItem item)
+        +getRunningTotal() double
+    }
+```
+
+
+--- FILE: .files2ignore ---
+```
+# .files2ignore GenericPromptGeneratorV3
+.git
+volumes/
+*.sh
+
+# Generator Output & Custom Data
+ai_prompt*
+Timeline*.json
+assets/
+
+### Node / NPM / Express / React ###
+node_modules/
+package-lock.json
+dist/
+build/
+out/
+coverage/
+.nyc_output/
+
+# Environment Variables (Security: Never upload secrets)
+.env
+.env.local
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Framework specific
+.next/
+.nuxt/
+dist-ssr
+*.local
+
+### Spring Boot / Java ###
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### IDEs / Editors ###
+
+# IntelliJ IDEA
+.idea
+*.iws
+*.iml
+*.ipr
+
+# VS Code
+.vscode/
+!.vscode/extensions.json
+
+# STS / Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# OS / Misc
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+```
+
+
+--- FILE: .gitignore ---
+```
+target/
+volumes/
+*.sh
+
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### IntelliJ IDEA ###
+.idea/modules.xml
+.idea/jarRepositories.xml
+.idea/compiler.xml
+.idea/libraries/
+*.iws
+*.iml
+*.ipr
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+```
+
+
+--- FILE: README.md ---
+```
+# Bookstore CLI Application
+
+A console-based Java application for managing a bookstore inventory, performing sales, and tracking cash flow. This project demonstrates object-oriented programming concepts including inheritance, polymorphism, and interface implementation in Java 24.
+
+## Features
+
+*   **Inventory Management:**
+    *   **Books:** Manage items with Title, Author, Price, and Copies.
+    *   **Magazines:** Manage periodicals with Order Quantity and Issue Date.
+    *   **Disc Magazines:** Specialized magazines that include a disc.
+    *   **Tickets:** Simple saleable items with a description and price.
+*   **CRUD Operations:** Add, Edit, and Delete items from the inventory.
+*   **Sales System:** Sell items to decrement inventory count and increase the Cash Till total.
+*   **Data Generation:** Uses `JavaFaker` to populate the inventory with realistic dummy data.
+*   **Menu System:** Interactive console menu for navigation.
+
+## Class Hierarchy
+
+![Class Diagram](documentation/bookstore-2026-01-30-142617.png)
+
+The hierarchy implements the following structure:
+*   **SaleableItem (Interface):** Defines `sellItem()` and `getPrice()`.
+*   **Editable (Abstract):** Handles console input/output and parsing.
+*   **Publication:** Base class for Books and Magazines (Title, Price, Copies).
+
+## Prerequisites
+
+*   **Java JDK:** Version 24
+*   **Maven:** 3.6+
+
+## Dependencies
+
+*   [JavaFaker](https://github.com/DiUS/java-faker) (1.0.2): For generating random test data.
+*   [JUnit 5](https://junit.org/junit5/) (5.10.0): For unit testing.
+
+## How to Run
+
+1.  **Compile the project:**
+    ```bash
+    mvn clean compile
+    ```
+
+2.  **Run the application:**
+    ```bash
+    mvn exec:java -Dexec.mainClass="csd214.bookstore.Main"
+    ```
+
+## Usage
+
+Upon starting, the application will populate the list with random data. You will see the following menu:
+
+```text
+***********************
+ 1. Add Items
+ 2. Edit Items
+ 3. Delete Items
+ 4. Sell item(s)
+ 5. List items
+99. Quit
+***********************
+```
+
+*   **Add Items:** Choose a specific type (Book, Magazine, etc.) and follow the prompts.
+*   **Edit Items:** Select an index from the list to modify fields.
+*   **Sell Items:** Select an index to sell. This decreases the 'Copies' count (for Publications) and adds the price to the internal Cash Till.
+
+## Running Tests
+
+Unit tests are implemented using JUnit 5 to verify the logic of POJOs and input mocking.
+
+Run the tests using Maven:
+
+```bash
+mvn test
+```
+
+## Project Structure
+
+```
+src/
+├── main/
+│   └── java/
+│       └── csd214/
+│           └── bookstore/
+│               ├── Main.java           # Entry point
+│               ├── App.java            # Controller / Menu Logic
+│               └── pojos/              # Data Models
+│                   ├── Editable.java
+│                   ├── SaleableItem.java
+│                   ├── Product.java
+│                   ├── Publication.java
+│                   ├── Book.java
+│                   ├── Magazine.java
+│                   ├── DiscMag.java
+│                   ├── Ticket.java
+│                   └── CashTill.java
+└── test/
+    └── java/
+        └── csd214/
+            └── bookstore/
+                └── pojos/              # Unit Tests
+```
+
+```
+
+
+--- FILE: docker-compose.yml ---
+```
+services:
+  db:
+    image: mysql:8.0 # You can specify bookstore-2026-01-30.mmd different version if needed
+    environment:
+      MYSQL_ROOT_PASSWORD: itstudies12345 # Replace with bookstore-2026-01-30.mmd strong password
+      MYSQL_DATABASE: bookstore # Replace with your desired database name
+      MYSQL_USER: csd214 # Replace with your desired username
+      MYSQL_PASSWORD: itstudies12345 # Replace with bookstore-2026-01-30.mmd strong password
+    ports:
+      - "3333:3306" # Maps port 3333 on your host to port 3306 in the container
+    volumes:
+      # - db_data:/var/lib/mysql # Persists data to bookstore-2026-01-30.mmd named volume
+      - ./volumes/mysql:/var/lib/mysql # persists data to folder in the current folder
+      # You can also mount bookstore-2026-01-30.mmd custom MySQL configuration file if needed:
+      # - ./my.cnf:/etc/mysql/my.cnf
+    restart: always
+
+volumes:
+  db_data: # Define the named volume
+
+```
+
+

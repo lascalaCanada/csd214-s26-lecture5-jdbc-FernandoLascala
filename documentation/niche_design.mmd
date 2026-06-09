@@ -1,0 +1,71 @@
+classDiagram
+    direction TB
+
+%% Interfaces
+    class SaleableItem {
+        <<interface>>
+        +sellItem() double
+        +getPrice() double
+    }
+
+    class Editable {
+        <<interface>>
+        +initialize(input: Scanner) void
+        +edit(input: Scanner) void
+    }
+
+%% Base Class
+    class Product {
+        -title: String
+        -price: double
+        -copies: int
+        +getTitle(): String
+        +setTitle(String)
+        +getPrice(): double
+        +setPrice(double)
+        +getCopies(): int
+        +setCopies(int)
+        +toString(): String
+    }
+
+%% Abstract Parent (Niche)
+    class PrinterItem {
+        <<abstract>>
+        -brand: String
+        +getBrand(): String
+        +setBrand(String)
+        +initialize(input: Scanner) void
+        +edit(input: Scanner) void
+    }
+
+%% Concrete Child 1
+    class Filament {
+        -materialType: String
+        +getMaterialType(): String
+        +setMaterialType(String)
+        +initialize(input: Scanner) void
+        +edit(input: Scanner) void
+        +sellItem(): double
+    }
+
+%% Concrete Child 2
+    class Nozzle {
+        -diameter: double
+        +getDiameter(): double
+        +setDiameter(double)
+        +initialize(input: Scanner) void
+        +edit(input: Scanner) void
+        +sellItem(): double
+    }
+
+%% Relationships
+    Product <|-- PrinterItem
+    PrinterItem <|-- Filament
+    PrinterItem <|-- Nozzle
+
+%% Subclasses implement SaleableItem for individual sale logic
+    SaleableItem <.. Filament
+    SaleableItem <.. Nozzle
+
+%% Main interface implemented by the abstract parent to avoid repetition
+    Editable <.. PrinterItem
