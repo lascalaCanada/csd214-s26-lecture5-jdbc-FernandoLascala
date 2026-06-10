@@ -1,5 +1,8 @@
 package bookstore.pojos;
 
+import bookstore.jdbc.JdbcFilamentApp;
+import bookstore.jdbc.JdbcNozzleApp;
+import bookstore.jdbc.JdbcTireApp;
 import bookstore.pojos.*;
 import com.github.javafaker.Faker;
 
@@ -13,7 +16,17 @@ public class App {
     private CashTill cashTill = new CashTill();
     private Scanner input = new Scanner(System.in);
 
+    // Infrastructure: Instantiating the centralized JDBC persistence managers
+    private JdbcTireApp tireDb = new JdbcTireApp();
+    private JdbcFilamentApp filamentDb = new JdbcFilamentApp();
+    private JdbcNozzleApp nozzleDb = new JdbcNozzleApp();
+
     public void run() {
+        // Phase 1 Infrastructure Initialization: Establishing baseline tables upon system startup
+        tireDb.createTiresTable();
+        filamentDb.createTable();
+        nozzleDb.createTable();
+
         populate();
         int choice = 0;
         while (choice != 99) {
@@ -111,6 +124,15 @@ public class App {
 
     public void addItem(SaleableItem item) {
         items.add(item);
+
+        // Phase 2 Propagation Layer: Diverting concrete sub-types to execute SQL parameterized insertions
+        if (item instanceof Tire) {
+            tireDb.insertTireItem((Tire) item);
+        } else if (item instanceof Filament) {
+            filamentDb.insertItem((Filament) item);
+        } else if (item instanceof Nozzle) {
+            nozzleDb.insertItem((Nozzle) item);
+        }
     }
 
     public void listAny() {
@@ -141,6 +163,18 @@ public class App {
 
             if (choice == 99) return;
 
+            // Phase 3 Read Delegation: Routing item searches directly to the live relational views
+            if (choice == 6) {
+                tireDb.listItems();
+                continue;
+            } else if (choice == 7) {
+                filamentDb.listItems();
+                continue;
+            } else if (choice == 8) {
+                nozzleDb.listItems();
+                continue;
+            }
+
             Class<?> filter = null;
             switch(choice) {
                 case 1: filter = null; break;
@@ -148,9 +182,6 @@ public class App {
                 case 3: filter = Magazine.class; break;
                 case 4: filter = DiscMag.class; break;
                 case 5: filter = Ticket.class; break;
-                case 6: filter = Tire.class; break;
-                case 7: filter = Filament.class; break;
-                case 8: filter = Nozzle.class; break;
                 default: System.out.println("Invalid selection."); continue;
             }
 
@@ -201,6 +232,17 @@ public class App {
     public void editItem(Editable item) {
         // PASS THE SHARED SCANNER
         item.edit(this.input);
+
+        // Phase 3 DML Execution: Requests the unique numerical auto-increment index to fire the precise relational update
+        System.out.print("Enter structural database primary key to execute remote update: ");
+        int id = Integer.parseInt(input.nextLine().trim());
+        if (item instanceof Tire) {
+            tireDb.updatePrice(id, ((Tire) item).getPrice());
+        } else if (item instanceof Filament) {
+            filamentDb.updateItem(id, (Filament) item);
+        } else if (item instanceof Nozzle) {
+            nozzleDb.updatePrice(id, ((Nozzle) item).getPrice());
+        }
     }
 
     public void deleteItem() {
@@ -211,8 +253,23 @@ public class App {
         try {
             int idx = Integer.parseInt(input.nextLine().trim());
             if (idx >= 0 && idx < items.size()) {
-                items.remove(idx);
-                System.out.println("Item deleted.");
+                SaleableItem item = items.remove(idx);
+                System.out.println("Item deleted from runtime memory cache.");
+
+                // Phase 3 Structural Separation: Intercepts relational items to route specific integer key removal commands
+                if (item instanceof Tire) {
+                    System.out.print("Enter active primary key (tireId) to confirm live database destruction: ");
+                    int id = Integer.parseInt(input.nextLine().trim());
+                    tireDb.deleteItem(id);
+                } else if (item instanceof Filament) {
+                    System.out.print("Enter active primary key (filamentId) to confirm live database destruction: ");
+                    int id = Integer.parseInt(input.nextLine().trim());
+                    filamentDb.deleteItem(id);
+                } else if (item instanceof Nozzle) {
+                    System.out.print("Enter active primary key (nozzleId) to confirm live database destruction: ");
+                    int id = Integer.parseInt(input.nextLine().trim());
+                    nozzleDb.deleteItem(id);
+                }
             }
         } catch (Exception e) {
             System.out.println("Invalid selection.");
