@@ -4,14 +4,12 @@ import bookstore.pojos.Filament;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
-import java.sql.Statement;
 import java.sql.SQLException;
 
 public class JdbcFilamentApp {
+
     // Database connection infrastructure configurations
-    private static final String DB_URL = "jdbc:mysql://localhost:3333/bookstore";
-    private static final String USER = "root";
-    private static final String PASS = "itstudies12345";
+    private final Jdbc dbConfig = new Jdbc();
 
     public static void main(String[] args) {
         JdbcFilamentApp app = new JdbcFilamentApp();
@@ -33,75 +31,70 @@ public class JdbcFilamentApp {
                 + "filamentCreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
                 + ");";
 
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
-             Statement stmt = conn.createStatement()) {
-
-            stmt.execute(sql);
-            System.out.println("Database Schema: 'Filaments' table successfully verified or created.");
-
+        // Executing the SQL code in MySQL Database
+        // Local function
+        try {
+            databaseExecs(sql,
+                    "Database Schema: 'Filaments' table successfully verified or created.",
+                    "DDL Execution Failure: ");
         } catch (SQLException e) {
-            System.err.println("DDL Execution Failure: " + e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 
     /**
-     * Phase 2 & 3: Secure Data Insertion
-     * Persists a domain Filament instance using a Parameterized PreparedStatement to block SQL Injection risks.
+     * Phase 2 & 3: Secure Data Insertion (Outcome 6.4 Compliant)
+     * Uses Parameterized PreparedStatement to block SQL Injection and maps the domain UUID string.
      */
     public void insertItem(Filament i) {
+        // Strict parameterization using '?' to eliminate string concatenation risks
         String sql = "INSERT INTO Filaments (filamentProductID, filamentBrand, filamentMaterial, filamentPrice, filamentCopies) "
                 + "VALUES (?, ?, ?, ?, ?)";
 
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            // Phase 3 Identity Mapping: Extracting the domain object's UUID string
-            pstmt.setString(1, i.getProductId());
-            pstmt.setString(2, i.getBrand());
-            pstmt.setString(3, i.getMaterialType());
-            pstmt.setDouble(4, i.getPrice());
-            pstmt.setInt(5, i.getCopies());
-
-            pstmt.executeUpdate();
-            System.out.println("Data Persistence: Filament record successfully saved to the backend repository.");
-
+        // Executing the SQL code in MySQL Database
+        // Local function
+        try {
+            databaseExecs(sql,
+                    "Data Persistence: Filament record successfully saved to the backend repository.",
+                    "DML Execution Failure: ",
+                    i.getProductId(),
+                    i.getBrand(),
+                    i.getMaterialType(),
+                    i.getPrice(),
+                    i.getCopies());
         } catch (SQLException e) {
-            System.err.println("DML Execution Failure: " + e.getMessage());
+            throw new RuntimeException(e);
         }
+
     }
 
     /**
-     * Phase 2 & 3: Read Operation (Object Rehydration)
-     * Executes a SELECT query to retrieve all database rows and rehydrates them into Java Filament instances.
+     * Phase 2 & 3: Read Operation & Identity Preservation (Outcome 6.4 Compliant)
+     * Pulls the unique UUID string back and rehydrates the object identity.
      */
     public void listItems() {
         String sql = "SELECT filamentProductID, filamentBrand, filamentMaterial, filamentPrice, filamentCopies FROM Filaments";
 
-        System.out.println("\n--- Fetching Persistent Records from 'Filaments' Table ---");
-
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
+        try (Connection conn = DriverManager.getConnection(dbConfig.url(), dbConfig.user(), dbConfig.pass());
              PreparedStatement pstmt = conn.prepareStatement(sql);
              java.sql.ResultSet rs = pstmt.executeQuery()) {
 
             while (rs.next()) {
-                // Extract relational data from columns
+                // Pulling the persistent identity string back from the database column
                 String productId = rs.getString("filamentProductID");
                 String brand = rs.getString("filamentBrand");
                 String material = rs.getString("filamentMaterial");
                 double price = rs.getDouble("filamentPrice");
                 int copies = rs.getInt("filamentCopies");
 
-                // Rehydrating utilizing your exact alternate constructor: Filament(genericManufacturer, price, copies, materialType)
                 Filament filament = new Filament(brand, price, copies, material);
 
-                // Phase 3 Identity Mapping: Restoring the unique universal identifier (UUID)
+                // Rule compliance: Restoring the exact unique universal identifier to maintain object identity
                 filament.setProductId(productId);
 
                 System.out.println("Hydrated Object -> ID: " + filament.getProductId()
                         + " | Brand: " + filament.getBrand()
-                        + " | Material: " + filament.getMaterialType()
-                        + " | Price: $" + filament.getPrice()
-                        + " | Stock: " + filament.getCopies());
+                        + " | Material: " + filament.getMaterialType());
             }
         } catch (SQLException e) {
             System.err.println("Read Operation Failure: " + e.getMessage());
@@ -112,20 +105,30 @@ public class JdbcFilamentApp {
      * Phase 2 & 3: Safe Update Operation by Product UUID
      * Ensures only the exact targeted filament record is modified.
      */
-    public void updatePrice(String productId, double newPrice) {
-        String sql = "UPDATE Filaments SET filamentPrice = ? WHERE filamentProductID = ?";
+    // Modified parameter type to int to safely match the database primary key integer constraint
+    public void updateItem(int filamentId, Filament i) {
+        String sql = "UPDATE Filaments " +
+                     "SET    filamentProductID = ?, " +
+                     "       filamentPrice = ?, " +
+                     "       filamentCopies = ?, " +
+                     "       filamentBrand = ?, " +
+                     "       filamentMaterial = ?" +
+                     "WHERE  filamentId = ?";
 
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setDouble(1, newPrice);
-            pstmt.setString(2, productId);
-
-            int rowsAffected = pstmt.executeUpdate();
-            System.out.println("Update Operation: " + rowsAffected + " row(s) updated successfully.");
-
+        // Executing the SQL code in MySQL Database
+        // Local function
+        try {
+            databaseExecs(sql,
+                    "Update Operation Successfully.",
+                    "DML Execution Failure: ",
+                    i.getProductId(),
+                    i.getPrice(),
+                    i.getCopies(),
+                    i.getBrand(),
+                    i.getMaterialType(),
+                    filamentId); // Passed as integer to isolate the correct auto-increment entry
         } catch (SQLException e) {
-            System.err.println("Update Operation Failure: " + e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 
@@ -133,19 +136,56 @@ public class JdbcFilamentApp {
      * Phase 2 & 3: Safe Delete Operation by Product UUID
      * Restricts the removal to a single unique record, preventing accidental data loss.
      */
-    public void deleteItem(String productId) {
-        String sql = "DELETE FROM Filaments WHERE filamentProductID = ?";
+    // Modified parameter type to int to match the auto-increment data layout criteria
+    public void deleteItem(int filamentId) {
+        String sql = "DELETE FROM Filaments WHERE filamentId = ?";
 
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
+        // Executing the SQL code in MySQL Database
+        // Local function
+        try {
+            databaseExecs(sql,
+                    "Delete Operation from backend storage successfully.",
+                    "DML Execution Failure: ",
+                    filamentId); // Passed as integer to target the specific database row
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
+    /**
+     * Executes database operations dynamically, handling both direct Statements (DDL)
+     * and secure Parameterized PreparedStatements (DML) based on arguments.
+     */
+    private void databaseExecs(String sql, String successMessage, String errorMessage, Object... parameters) throws SQLException {
+
+        // Connection setup using dbConfig.url(), dbConfig.user(), and dbConfig.password() from your record
+        try (Connection conn = DriverManager.getConnection(dbConfig.url(), dbConfig.user(), dbConfig.pass());
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, productId);
+            // Phase 3 Anti-Injection: Iterates and binds query variables if present
+            for (int i = 0; i < parameters.length; i++) {
+                Object param = parameters[i];
+                int parameterIndex = i + 1;
 
-            int rowsAffected = pstmt.executeUpdate();
-            System.out.println("Delete Operation: " + rowsAffected + " row(s) removed from backend storage.");
+                // Evaluation about which the parameter is
+                if (param instanceof String) {
+                    pstmt.setString(parameterIndex, (String) param);
+                } else if (param instanceof Double) {
+                    pstmt.setDouble(parameterIndex, (Double) param);
+                } else if (param instanceof Integer) {
+                    pstmt.setInt(parameterIndex, (Integer) param);
+                } else if (param == null) {
+                    pstmt.setNull(parameterIndex, java.sql.Types.NULL);
+                }
+            }
+
+            // Executes the statement safely
+            pstmt.execute();
+            System.out.println(successMessage);
 
         } catch (SQLException e) {
-            System.err.println("Delete Operation Failure: " + e.getMessage());
+            System.err.println(errorMessage + e.getMessage());
         }
     }
 }

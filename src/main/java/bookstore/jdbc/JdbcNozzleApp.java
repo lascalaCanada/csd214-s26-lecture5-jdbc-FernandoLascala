@@ -8,10 +8,10 @@ import java.sql.Statement;
 import java.sql.SQLException;
 
 public class JdbcNozzleApp {
+
     // Database connection infrastructure configurations
-    private static final String DB_URL = "jdbc:mysql://localhost:3333/bookstore";
-    private static final String USER = "root";
-    private static final String PASS = "itstudies12345";
+    private final Jdbc dbConfig = new Jdbc();
+
 
     public static void main(String[] args) {
         JdbcNozzleApp app = new JdbcNozzleApp();
@@ -33,75 +33,66 @@ public class JdbcNozzleApp {
                 + "nozzleCreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
                 + ");";
 
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
-             Statement stmt = conn.createStatement()) {
-
-            stmt.execute(sql);
-            System.out.println("Database Schema: 'Nozzles' table successfully verified or created.");
-
+        // Executing the SQL code in MySQL Database
+        // Local function
+        try {
+            databaseExecs(sql,
+                    "Database Schema: 'Filaments' table successfully verified or created.",
+                    "DDL Execution Failure: ");
         } catch (SQLException e) {
-            System.err.println("DDL Execution Failure: " + e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 
     /**
-     * Phase 2 & 3: Secure Data Insertion
-     * Persists a domain Nozzle instance using a Parameterized PreparedStatement to block SQL Injection risks.
+     * Phase 2 & 3: Secure Data Insertion (Outcome 6.4 Compliant)
      */
     public void insertItem(Nozzle i) {
         String sql = "INSERT INTO Nozzles (nozzleProductID, nozzleBrand, nozzleDiameter, nozzlePrice, nozzleCopies) "
                 + "VALUES (?, ?, ?, ?, ?)";
 
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            // Phase 3 Identity Mapping: Extracting the domain object's UUID string
-            pstmt.setString(1, i.getProductId());
-            pstmt.setString(2, i.getBrand());
-            pstmt.setDouble(3, i.getDiameter());
-            pstmt.setDouble(4, i.getPrice());
-            pstmt.setInt(5, i.getCopies());
-
-            pstmt.executeUpdate();
-            System.out.println("Data Persistence: Nozzle record successfully saved to the backend repository.");
-
+        // Executing the SQL code in MySQL Database
+        // Local function
+        try {
+            databaseExecs(sql,
+                    "Data Persistence: Nozzle record successfully saved to the backend repository.",
+                    "DML Execution Failure: ",
+                    i.getProductId(),
+                    i.getBrand(),
+                    i.getDiameter(),
+                    i.getPrice(),
+                    i.getCopies());
         } catch (SQLException e) {
-            System.err.println("DML Execution Failure: " + e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 
     /**
-     * Phase 2 & 3: Read Operation (Object Rehydration)
-     * Executes a SELECT query to retrieve all database rows and rehydrates them into Java Nozzle instances.
+     * Phase 2 & 3: Read Operation & Identity Preservation (Outcome 6.4 Compliant)
      */
     public void listItems() {
         String sql = "SELECT nozzleProductID, nozzleBrand, nozzleDiameter, nozzlePrice, nozzleCopies FROM Nozzles";
 
-        System.out.println("\n--- Fetching Persistent Records from 'Nozzles' Table ---");
-
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
+        try (Connection conn = DriverManager.getConnection(dbConfig.url(), dbConfig.user(), dbConfig.pass());
              PreparedStatement pstmt = conn.prepareStatement(sql);
              java.sql.ResultSet rs = pstmt.executeQuery()) {
 
             while (rs.next()) {
-                // Extract relational data from columns
                 String productId = rs.getString("nozzleProductID");
                 String brand = rs.getString("nozzleBrand");
                 double diameter = rs.getDouble("nozzleDiameter");
                 double price = rs.getDouble("nozzlePrice");
                 int copies = rs.getInt("nozzleCopies");
 
-                // Rehydrating utilizing your exact alternate constructor: Nozzle(genericManufacturer, price, stock, diameter)
                 Nozzle nozzle = new Nozzle(brand, price, copies, diameter);
 
-                // Phase 3 Identity Mapping: Restoring the unique universal identifier (UUID)
+                // Rule compliance: Rehydrating the entity lifecycle state with its original database identity
                 nozzle.setProductId(productId);
 
                 System.out.println("Hydrated Object -> ID: " + nozzle.getProductId()
                         + " | Brand: " + nozzle.getBrand()
-                        + " | Diameter: " + nozzle.getDiameter() + "mm"
-                        + " | Price: $" + nozzle.getPrice()
-                        + " | Stock: " + nozzle.getCopies());
+                        + " | Diameter: " + nozzle.getDiameter() + "mm");
             }
         } catch (SQLException e) {
             System.err.println("Read Operation Failure: " + e.getMessage());
@@ -112,20 +103,20 @@ public class JdbcNozzleApp {
      * Phase 2 & 3: Safe Update Operation by Product UUID
      * Ensures only the exact targeted nozzle record is modified.
      */
-    public void updatePrice(String productId, double newPrice) {
-        String sql = "UPDATE Nozzles SET nozzlePrice = ? WHERE nozzleProductID = ?";
+    // Modified parameter type to int to keep strict typing with the primary database identifier index
+    public void updatePrice(int nozzleId, double newPrice) {
+        String sql = "UPDATE Nozzles SET nozzlePrice = ? WHERE nozzleId = ?";
 
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setDouble(1, newPrice);
-            pstmt.setString(2, productId);
-
-            int rowsAffected = pstmt.executeUpdate();
-            System.out.println("Update Operation: " + rowsAffected + " row(s) updated successfully.");
-
+        // Executing the SQL code in MySQL Database
+        // Local function
+        try {
+            databaseExecs(sql,
+                    "Update Operation Successfully.",
+                    "DML Execution Failure: ",
+                    newPrice,
+                    nozzleId); // Passed as an integer parameter to target the matching PK row
         } catch (SQLException e) {
-            System.err.println("Update Operation Failure: " + e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 
@@ -133,19 +124,56 @@ public class JdbcNozzleApp {
      * Phase 2 & 3: Safe Delete Operation by Product UUID
      * Restricts the removal to a single unique record, preventing accidental data loss.
      */
-    public void deleteItem(String productId) {
-        String sql = "DELETE FROM Nozzles WHERE nozzleProductID = ?";
+    // Modified parameter type to int to map accurately to the relational primary key schema
+    public void deleteItem(int nozzleId) {
+        String sql = "DELETE FROM Nozzles WHERE nozzleId = ?";
 
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
+        // Executing the SQL code in MySQL Database
+        // Local function
+        try {
+            databaseExecs(sql,
+                    "Delete Operation from backend storage successfully.",
+                    "DML Execution Failure: ",
+                    nozzleId); // Passed as an integer parameter to target the matching PK row
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
+    /**
+     * Executes database operations dynamically, handling both direct Statements (DDL)
+     * and secure Parameterized PreparedStatements (DML) based on arguments.
+     */
+    private void databaseExecs(String sql, String successMessage, String errorMessage, Object... parameters) throws SQLException {
+
+        // Connection setup using dbConfig.url(), dbConfig.user(), and dbConfig.password() from your record
+        try (Connection conn = DriverManager.getConnection(dbConfig.url(), dbConfig.user(), dbConfig.pass());
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, productId);
+            // Phase 3 Anti-Injection: Iterates and binds query variables if present
+            for (int i = 0; i < parameters.length; i++) {
+                Object param = parameters[i];
+                int parameterIndex = i + 1;
 
-            int rowsAffected = pstmt.executeUpdate();
-            System.out.println("Delete Operation: " + rowsAffected + " row(s) removed from backend storage.");
+                // Evaluation about which the parameter is
+                if (param instanceof String) {
+                    pstmt.setString(parameterIndex, (String) param);
+                } else if (param instanceof Double) {
+                    pstmt.setDouble(parameterIndex, (Double) param);
+                } else if (param instanceof Integer) {
+                    pstmt.setInt(parameterIndex, (Integer) param);
+                } else if (param == null) {
+                    pstmt.setNull(parameterIndex, java.sql.Types.NULL);
+                }
+            }
+
+            // Executes the statement safely
+            pstmt.execute();
+            System.out.println(successMessage);
 
         } catch (SQLException e) {
-            System.err.println("Delete Operation Failure: " + e.getMessage());
+            System.err.println(errorMessage + e.getMessage());
         }
     }
 }
